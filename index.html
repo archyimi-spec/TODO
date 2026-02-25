@@ -89,7 +89,7 @@
 
         .clear-input-btn { position: absolute; right: 15px; color: #ddd; cursor: pointer; font-size: 20px; display: none; }
 
-        #todo-list { list-style: none; padding: 0; margin: 0; }
+        #todo-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
 
         .todo-item {
             display: flex;
@@ -100,7 +100,7 @@
             border-radius: 12px;
             position: relative;
             background-color: var(--m-white);
-            transition: all 0.4s ease;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .todo-item input[type="checkbox"] {
@@ -111,39 +111,45 @@
             accent-color: #a0a0a0;
         }
 
-        .todo-text { flex: 1; font-size: 15px; color: var(--text-color); word-break: break-all; }
+        .todo-text { flex: 1; font-size: 15px; color: var(--text-color); word-break: break-all; cursor: text; }
+        .edit-todo-input { flex: 1; font-family: inherit; font-size: 15px; padding: 2px 0; border: none; border-bottom: 1px solid #ddd; outline: none; background: transparent; }
+
         .actions { display: flex; align-items: center; gap: 8px; margin-left: 10px; }
         .more-btn { color: #ddd; cursor: pointer; font-size: 22px; width: 24px; text-align: center; }
         .delete-btn { color: #eee; cursor: pointer; font-size: 22px; padding: 0 5px; }
         .delete-btn:hover { color: var(--delete-hover); }
 
+        /* 竖向颜色菜单样式修正 */
         .color-menu {
             position: absolute;
             right: 10px;
-            top: 50px;
+            top: 45px;
             background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
             display: none;
-            padding: 12px;
+            padding: 10px;
             z-index: 100;
-            gap: 12px;
+            flex-direction: column; /* 竖向排版 */
+            gap: 10px;
             border: 1px solid #f0f0f0;
         }
 
         .color-dot {
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             cursor: pointer;
             border: 1px solid rgba(0,0,0,0.05);
+            transition: transform 0.2s;
         }
+        .color-dot:hover { transform: scale(1.15); }
 
         .todo-item.completed { background-color: #fbfbfb !important; border-color: transparent; opacity: 0.5; order: 999 !important; }
         .todo-item.completed .todo-text { color: var(--done-color); text-decoration: line-through; }
         .todo-item.completed .more-btn { display: none; }
 
-        .title-input, .edit-input { font-family: inherit; border: 1px solid #ddd; border-radius: 6px; outline: none; background: #fff; padding: 3px 8px; }
+        .title-input { font-family: inherit; border: 1px solid #ddd; border-radius: 6px; outline: none; background: #fff; padding: 3px 8px; width: 150px; text-align: center; }
         #file-input { display: none; }
     </style>
 </head>
@@ -163,7 +169,7 @@
         <input type="text" id="new-todo" placeholder="记录今天的事..." autocomplete="off">
         <span class="clear-input-btn" id="clear-btn">&times;</span>
     </div>
-    <ul id="todo-list" style="display: flex; flex-direction: column;"></ul>
+    <ul id="todo-list"></ul>
 </div>
 
 <script>
@@ -173,7 +179,6 @@
     const mainTitle = document.getElementById('main-title');
     const doneCountDisplay = document.getElementById('done-count');
 
-    // 优先级映射表：紫>红>橙>白
     const colorPriority = {
         "rgb(185, 177, 202)": 1, // 紫
         "rgb(226, 180, 180)": 2, // 红
@@ -186,25 +191,21 @@
     function getTodayStr() { return new Date().toISOString().split('T')[0]; }
     function updateCounter() { doneCountDisplay.innerText = document.querySelectorAll('.todo-item.completed').length; }
 
-    // 核心自动排序函数
     function sortTasks() {
         const items = Array.from(list.children);
         items.sort((a, b) => {
             const aDone = a.classList.contains('completed');
             const bDone = b.classList.contains('completed');
             if (aDone !== bDone) return aDone ? 1 : -1;
-
-            const aColor = a.style.backgroundColor;
-            const bColor = b.style.backgroundColor;
-            const pA = colorPriority[aColor] || 5;
-            const pB = colorPriority[bColor] || 5;
+            const pA = colorPriority[a.style.backgroundColor] || 5;
+            const pB = colorPriority[b.style.backgroundColor] || 5;
             return pA - pB;
         });
         items.forEach(item => list.appendChild(item));
     }
 
     function exportData() {
-        const data = localStorage.getItem('my_task_v3');
+        const data = localStorage.getItem('my_task_v4');
         if (!data) return alert("暂无数据");
         const blob = new Blob([data], { type: 'application/json' });
         const a = document.createElement('a');
@@ -218,12 +219,13 @@
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (e) => {
-            localStorage.setItem('my_task_v3', e.target.result);
+            localStorage.setItem('my_task_v4', e.target.result);
             loadData();
         };
         reader.readAsText(file);
     }
 
+    // 主标题编辑
     mainTitle.ondblclick = () => {
         const current = mainTitle.innerText;
         const ti = document.createElement('input');
@@ -244,7 +246,7 @@
     clearBtn.onclick = () => { input.value = ""; clearBtn.style.display = 'none'; input.focus(); };
     input.onkeypress = (e) => {
         if (e.key === 'Enter' && input.value.trim() !== "") {
-            createTodoElement(input.value, false, 'var(--m-white)');
+            createTodoElement(input.value, false, 'rgb(255, 255, 255)');
             input.value = ""; clearBtn.style.display = 'none';
             sortTasks();
             saveData();
@@ -269,6 +271,34 @@
                 <div class="color-dot" style="background:var(--m-white); border:1px solid #eee" onclick="setTaskColor(this, 'var(--m-white)')"></div>
             </div>
         `;
+
+        // --- 核心：双击编辑任务文字 ---
+        const textSpan = li.querySelector('.todo-text');
+        textSpan.ondblclick = (e) => {
+            if (li.classList.contains('completed')) return; // 已完成不编辑
+            e.stopPropagation();
+            const currentText = textSpan.innerText;
+            const editInput = document.createElement('input');
+            editInput.type = 'text';
+            editInput.value = currentText;
+            editInput.className = 'edit-todo-input';
+            
+            li.replaceChild(editInput, textSpan);
+            editInput.focus();
+
+            const finishEdit = () => {
+                const newText = editInput.value.trim() || currentText;
+                textSpan.innerText = newText;
+                if (editInput.parentNode === li) {
+                    li.replaceChild(textSpan, editInput);
+                }
+                saveData();
+            };
+
+            editInput.onblur = finishEdit;
+            editInput.onkeypress = (e) => { if(e.key === 'Enter') finishEdit(); };
+        };
+
         list.appendChild(li);
         updateCounter();
     }
@@ -283,7 +313,6 @@
 
     function setTaskColor(dot, colorVar) {
         const item = dot.parentElement.parentElement;
-        // 将变量转为实际的 rgb 字符串以便排序对比
         const temp = document.createElement('div');
         temp.style.color = colorVar;
         document.body.appendChild(temp);
@@ -292,13 +321,13 @@
 
         item.style.backgroundColor = actualColor;
         dot.parentElement.style.display = 'none';
-        sortTasks(); // 变色后立即重排
+        sortTasks();
         saveData();
     }
 
     function toggleTask(cb) {
         cb.parentElement.classList.toggle('completed', cb.checked);
-        sortTasks(); // 勾选后立即重排
+        sortTasks();
         updateCounter();
         saveData();
     }
@@ -308,13 +337,14 @@
     function saveData() {
         const todos = [];
         document.querySelectorAll('.todo-item').forEach(item => {
+            const textEl = item.querySelector('.todo-text') || item.querySelector('.edit-todo-input');
             todos.push({
-                text: item.querySelector('.todo-text').innerText,
+                text: textEl.innerText || textEl.value,
                 done: item.querySelector('input').checked,
                 color: item.style.backgroundColor
             });
         });
-        localStorage.setItem('my_task_v3', JSON.stringify({ 
+        localStorage.setItem('my_task_v4', JSON.stringify({ 
             title: mainTitle.innerText, 
             tasks: todos,
             lastDate: getTodayStr()
@@ -322,7 +352,7 @@
     }
 
     function loadData() {
-        const dataStr = localStorage.getItem('my_task_v3');
+        const dataStr = localStorage.getItem('my_task_v4');
         if (!dataStr) return;
         const data = JSON.parse(dataStr);
         const today = getTodayStr();

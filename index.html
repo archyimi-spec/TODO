@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="apple-touch-icon" href="icon.png">
+    
+    <title>TASKS</title>
+    <style>
+        /* 这里保留之前的全部 CSS 样式，无需更改 */
+        :root {
+            --bg-color: #f5f5f5;
+            --text-color: #444;
+            --done-color: #bbb;
+            --card-bg: #ffffff;
+            --accent: #eee;
+            --delete-hover: #ff7675;
+            --m-red: #e2b4b4;
+            --m-purple: #b9b1ca;
+            --m-yellow: #e4d7b1;
+            --m-default: #ffffff;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            padding-top: 50px;
+            margin: 0;
+            user-select: none;
+        }
+
+        .container {
+            width: 380px;
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        .header-container { text-align: center; margin-bottom: 5px; }
+        h2 {
+            display: inline-block;
+            font-weight: 300;
+            color: #888;
+            margin: 0;
+            letter-spacing: 2px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #ccc;
+            font-size: 11px;
+            margin-bottom: 20px;
+            padding: 0 5px;
+        }
+
+        .data-tools span {
+            cursor: pointer;
+            margin-left: 10px;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            position: relative;
+            margin-bottom: 25px;
+        }
+
+        #new-todo {
+            flex: 1;
+            border: 1px solid #e8e8e8;
+            padding: 12px 40px 12px 15px;
+            border-radius: 10px;
+            outline: none;
+            font-size: 14px;
+            background: #fafafa;
+        }
+
+        .clear-input-btn { position: absolute; right: 12px; color: #ddd; cursor: pointer; font-size: 18px; display: none; }
+
+        #todo-list { list-style: none; padding: 0; margin: 0; }
+
+        .todo-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            border: 1px solid #f2f2f2;
+            border-radius: 10px;
+            cursor: grab;
+            position: relative;
+            background-color: var(--m-default);
+            transition: background-color 0.4s ease, opacity 0.3s;
+        }
+
+        .todo-item input[type="checkbox"] {
+            width: 17px;
+            height: 17px;
+            margin-right: 12px;
+            cursor: pointer;
+            accent-color: #999;
+        }
+
+        .todo-text { flex: 1; font-size: 15px; color: var(--text-color); word-break: break-all; }
+        .actions { display: flex; align-items: center; gap: 5px; margin-left: 10px; }
+        .more-btn { color: #ddd; cursor: pointer; font-size: 20px; width: 24px; text-align: center; }
+        .delete-btn { color: #eee; cursor: pointer; font-size: 20px; padding: 0 5px; }
+        .delete-btn:hover { color: var(--delete-hover); }
+
+        .color-menu {
+            position: absolute;
+            right: 10px;
+            top: 45px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: none;
+            padding: 10px;
+            z-index: 100;
+            flex-direction: column;
+            gap: 8px;
+            border: 1px solid #eee;
+        }
+
+        .color-dot { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 1px solid rgba(0,0,0,0.05); }
+
+        .todo-item.completed { background-color: #fbfbfb !important; border-color: transparent; opacity: 0.7; }
+        .todo-item.completed .todo-text { color: var(--done-color); text-decoration: line-through; }
+        .todo-item.completed .more-btn { display: none; }
+
+        .title-input, .edit-input { font-family: inherit; border: 1px solid #ddd; border-radius: 4px; outline: none; background: #fff; padding: 2px 5px; }
+        #file-input { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-container"><h2 id="main-title">TASKS</h2></div>
+    
+    <div class="info-bar">
+        <div>今日完成: <span id="done-count">0</span></div>
+        <div class="data-tools">
+            <span onclick="exportData()">导出</span>
+            <span onclick="document.getElementById('file-input').click()">导入</span>
+        </div>
+    </div>
+
+    <input type="file" id="file-input" accept=".json" onchange="importData(event)">
+
+    <div class="input-group">
+        <input type="text" id="new-todo" autocomplete="off">
+        <span class="clear-input-btn" id="clear-btn">&times;</span>
+    </div>
+    <ul id="todo-list"></ul>
+</div>
+
+<script>
+    /* --- 这里保留之前的 JS 业务逻辑 --- */
+    const input = document.getElementById('new-todo');
+    const clearBtn = document.getElementById('clear-btn');
+    const list = document.getElementById('todo-list');
+    const mainTitle = document.getElementById('main-title');
+    const doneCountDisplay = document.getElementById('done-count');
+
+    document.addEventListener('DOMContentLoaded', loadData);
+
+    function getTodayStr() { return new Date().toISOString().split('T')[0]; }
+    function updateCounter() { doneCountDisplay.innerText = document.querySelectorAll('.todo-item.completed').length; }
+
+    function exportData() {
+        const data = localStorage.getItem('my_tab_sync_todo');
+        if (!data) return alert("暂无数据导出");
+        const blob = new Blob([data], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `TASKS_${getTodayStr()}.json`;
+        a.click();
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                localStorage.setItem('my_tab_sync_todo', e.target.result);
+                loadData();
+            } catch (err) { alert("文件格式错误"); }
+        };
+        reader.readAsText(file);
+    }
+
+    mainTitle.addEventListener('dblclick', () => {
+        const currentTitle = mainTitle.innerText;
+        const titleInput = document.createElement('input');
+        titleInput.value = currentTitle;
+        titleInput.className = 'title-input';
+        mainTitle.parentElement.replaceChild(titleInput, mainTitle);
+        titleInput.focus();
+        const finishEdit = () => {
+            const newText = titleInput.value.trim() || "TASKS";
+            mainTitle.innerText = newText;
+            document.title = newText;
+            titleInput.parentElement.replaceChild(mainTitle, titleInput);
+            saveData();
+        };
+        titleInput.onblur = finishEdit;
+        titleInput.onkeypress = (e) => { if(e.key === 'Enter') finishEdit(); };
+    });
+
+    input.oninput = () => clearBtn.style.display = input.value.length > 0 ? 'block' : 'none';
+    clearBtn.onclick = () => { input.value = ""; clearBtn.style.display = 'none'; input.focus(); };
+    input.onkeypress = (e) => {
+        if (e.key === 'Enter' && input.value.trim() !== "") {
+            createTodoElement(input.value, false, 'var(--m-default)');
+            input.value = ""; clearBtn.style.display = 'none'; saveData();
+        }
+    };
+
+    function createTodoElement(text, isDone, bgColor) {
+        const li = document.createElement('li');
+        li.className = `todo-item ${isDone ? 'completed' : ''}`;
+        li.style.backgroundColor = bgColor;
+        li.draggable = true;
+        li.innerHTML = `
+            <input type="checkbox" ${isDone ? 'checked' : ''} onchange="toggleTask(this)">
+            <span class="todo-text">${text}</span>
+            <div class="actions">
+                <span class="more-btn" onclick="toggleColorMenu(event, this)">&#8942;</span>
+                <span class="delete-btn" onclick="removeTask(this)">&times;</span>
+            </div>
+            <div class="color-menu">
+                <div class="color-dot" style="background:var(--m-red)" onclick="setTaskColor(this, 'var(--m-red)')"></div>
+                <div class="color-dot" style="background:var(--m-purple)" onclick="setTaskColor(this, 'var(--m-purple)')"></div>
+                <div class="color-dot" style="background:var(--m-yellow)" onclick="setTaskColor(this, 'var(--m-yellow)')"></div>
+                <div class="color-dot" style="background:var(--m-default); border:1px solid #ddd" onclick="setTaskColor(this, 'var(--m-default)')"></div>
+            </div>
+        `;
+        const textSpan = li.querySelector('.todo-text');
+        textSpan.ondblclick = () => {
+            if (li.classList.contains('completed')) return;
+            const editInput = document.createElement('input');
+            editInput.value = textSpan.innerText;
+            editInput.className = 'edit-input';
+            li.replaceChild(editInput, textSpan);
+            editInput.focus();
+            const saveText = () => {
+                textSpan.innerText = editInput.value.trim() || textSpan.innerText;
+                li.replaceChild(textSpan, editInput);
+                saveData();
+            };
+            editInput.onblur = saveText;
+            editInput.onkeypress = (e) => { if(e.key === 'Enter') saveText(); };
+        };
+        addDragEvents(li);
+        if (isDone) list.appendChild(li); else list.prepend(li);
+        updateCounter();
+    }
+
+    function toggleColorMenu(event, btn) {
+        event.stopPropagation();
+        const menu = btn.parentElement.nextElementSibling;
+        document.querySelectorAll('.color-menu').forEach(m => m.style.display = 'none');
+        menu.style.display = 'flex';
+    }
+
+    function setTaskColor(dot, color) {
+        dot.parentElement.parentElement.style.backgroundColor = color;
+        dot.parentElement.style.display = 'none';
+        saveData();
+    }
+
+    function toggleTask(checkbox) {
+        const item = checkbox.parentElement;
+        if (checkbox.checked) { item.classList.add('completed'); list.appendChild(item); }
+        else { item.classList.remove('completed'); list.prepend(item); }
+        updateCounter();
+        saveData();
+    }
+
+    function removeTask(btn) { 
+        btn.parentElement.parentElement.remove(); 
+        updateCounter(); saveData(); 
+    }
+
+    function saveData() {
+        const todos = [];
+        document.querySelectorAll('.todo-item').forEach(item => {
+            todos.push({
+                text: item.querySelector('.todo-text').innerText,
+                done: item.querySelector('input').checked,
+                color: item.style.backgroundColor
+            });
+        });
+        localStorage.setItem('my_tab_sync_todo', JSON.stringify({ 
+            title: mainTitle.innerText, 
+            tasks: todos,
+            lastDate: getTodayStr()
+        }));
+    }
+
+    function loadData() {
+        const dataStr = localStorage.getItem('my_tab_sync_todo');
+        if (!dataStr) return;
+        const data = JSON.parse(dataStr);
+        const today = getTodayStr();
+        const savedTitle = data.title || "TASKS";
+        mainTitle.innerText = savedTitle;
+        document.title = savedTitle;
+        list.innerHTML = '';
+        if (data.lastDate !== today) {
+            data.tasks.forEach(t => { if (!t.done) createTodoElement(t.text, false, t.color); });
+            saveData();
+        } else {
+            data.tasks.forEach(t => createTodoElement(t.text, t.done, t.color));
+        }
+        updateCounter();
+    }
+
+    let dragItem = null;
+    function addDragEvents(item) {
+        item.ondragstart = () => { dragItem = item; setTimeout(() => item.classList.add('dragging'), 0); };
+        item.ondragend = () => { dragItem.classList.remove('dragging'); dragItem = null; saveData(); };
+    }
+    list.ondragover = e => {
+        e.preventDefault();
+        const draggingElements = [...list.querySelectorAll('.todo-item:not(.dragging)')];
+        const afterElement = draggingElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = e.clientY - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
+            else return closest;
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+        if (afterElement == null) list.appendChild(dragItem); else list.insertBefore(dragItem, afterElement);
+    };
+
+    window.onclick = () => document.querySelectorAll('.color-menu').forEach(m => m.style.display = 'none');
+
+    // --- Service Worker 注册 (PWA 核心) ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            // 创建一个内联的 Service Worker 避免多文件麻烦
+            const swContent = `
+                const CACHE_NAME = 'tasks-pwa-v1';
+                self.addEventListener('install', e => e.waitUntil(caches.open(CACHE_NAME)));
+                self.addEventListener('fetch', e => {
+                    e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
+                });
+            `;
+            const blob = new Blob([swContent], {type: 'text/javascript'});
+            const swUrl = URL.createObjectURL(blob);
+            navigator.serviceWorker.register(swUrl).catch(err => console.log('SW failed', err));
+        });
+    }
+</script>
+
+</body>
+</html>
